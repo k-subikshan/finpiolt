@@ -1,0 +1,222 @@
+{
+  "name": "My workflow 3",
+  "nodes": [
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "SELECT\n    user_name,\n    merchant,\n    COUNT(*) AS payment_count,\n    ROUND(AVG(amount), 2) AS average_amount,\n    MIN(transaction_date) AS first_payment,\n    MAX(transaction_date) AS last_payment,\n  transaction_type\nFROM transactions\nWHERE transaction_type = 'expense' and user_name='{{ $json.user_name }}'\nGROUP BY user_name,merchant\nHAVING COUNT(*) >= 1\nORDER BY user_name, payment_count DESC;",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.mySql",
+      "typeVersion": 2.5,
+      "position": [
+        -464,
+        0
+      ],
+      "id": "9fbce642-7a05-43cb-8fe8-f232b4779246",
+      "name": "Execute a SQL query",
+      "credentials": {
+        "mySql": {
+          "id": "FGEM6dZs03ON3cQd",
+          "name": "MySQL account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "finpilot/subscription",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2.1,
+      "position": [
+        -688,
+        0
+      ],
+      "id": "e601ff99-1614-45f9-8be5-90e940e1fbad",
+      "name": "Webhook",
+      "webhookId": "251ce5b6-9118-467b-a799-db5793c2a5ef"
+    },
+    {
+      "parameters": {
+        "jsCode": "const rows = $input.all().map(item => item.json);\n\nreturn rows.map(row => {\n  return {\n    json: {\n      user_name: row.user_name,\n      merchant: row.merchant,\n      payment_count: Number(row.payment_count),\n      average_amount: Number(row.average_amount),\n      first_payment: row.first_payment,\n      last_payment: row.last_payment,\n      transaction:row.transaction_type\n    }\n  };\n});"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -240,
+        0
+      ],
+      "id": "6f234998-5a3f-4a09-937c-0af0c7d199b4",
+      "name": "Code in JavaScript"
+    },
+    {
+      "parameters": {
+        "promptType": "define",
+        "text": "=You are FinPilot's recurring payment detection agent.\n\nAnalyze the transaction pattern provided below.\n\nDetermine whether the merchant appears to represent a recurring payment or subscription.\n\nA recurring payment usually has:\n- Multiple payments to the same merchant\n- Similar payment amounts\n- A regular or approximately regular payment pattern\n- A service that is commonly paid periodically\n\nDo NOT assume that every repeated merchant is a subscription.\n\nExamples:\nNetflix → Subscription\nSpotify → Subscription\nAirtel → Recurring Bill\nElectricity Bill → Recurring Bill\nSwiggy → Usually not a subscription\nAmazon → Usually not a subscription\n\nMerchant:\n{{ $json.merchant }}\n\nUser:\n{{ $json.user_name }}\n\nNumber of payments:\n{{ $json.payment_count }}\n\nAverage payment:\n₹{{ $json.average_amount }}\n\nFirst payment:\n{{ $json.first_payment }}\n\nLast payment:\n{{ $json.last_payment }}\ntype:\n{{ $json.transaction }}\nReturn ONLY valid JSON:\n\n{\n  \"is_recurring\": true,\n  \"type\": \"subscription\",\n  \"merchant\": \"Netflix\",\n  \"average_amount\": 649,\n  \"frequency\": \"monthly\",\n  \"confidence\": 0.95\n}\n\nAllowed type values:\n- subscription\n- recurring_bill\n- not_recurring\n\nIf the evidence is insufficient, use:\n\n{\n  \"is_recurring\": false,\n  \"type\": \"not_recurring\",\n  \"merchant\": \"\",\n  \"average_amount\": 0,\n  \"frequency\": \"unknown\",\n  \"confidence\": 0\n}",
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.agent",
+      "typeVersion": 3.1,
+      "position": [
+        -16,
+        0
+      ],
+      "id": "f3a79452-d83d-4363-aa44-9f260c196f29",
+      "name": "AI Agent"
+    },
+    {
+      "parameters": {
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.lmChatGoogleGemini",
+      "typeVersion": 1.1,
+      "position": [
+        -160,
+        208
+      ],
+      "id": "53d4d5ee-75c7-4dc2-a525-7e12a09c4c3c",
+      "name": "Google Gemini Chat Model",
+      "credentials": {
+        "googlePalmApi": {
+          "id": "XcZOjdrfoSvcDjSk",
+          "name": "Google Gemini(PaLM) Api account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "table": {
+          "__rl": true,
+          "value": "subscriptions",
+          "mode": "list",
+          "cachedResultName": "subscriptions"
+        },
+        "dataMode": "defineBelow",
+        "valuesToSend": {
+          "values": [
+            {
+              "column": "user_name",
+              "value": "={{ $('Code in JavaScript').item.json.user_name }}"
+            },
+            {
+              "column": "merchant",
+              "value": "={{ $('Code in JavaScript').item.json.merchant }}"
+            },
+            {
+              "column": "amount",
+              "value": "={{ $('Code in JavaScript').item.json.average_amount }}"
+            },
+            {
+              "column": "frequency",
+              "value": "={{ JSON.parse($json.output).frequency }}"
+            },
+            {
+              "column": "type",
+              "value": "={{ JSON.parse($json.output).type }}"
+            },
+            {
+              "column": "confidence",
+              "value": "={{ JSON.parse($json.output).confidence }}"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.mySql",
+      "typeVersion": 2.5,
+      "position": [
+        352,
+        0
+      ],
+      "id": "41d723e5-f524-4dae-ab64-9b80b2c31303",
+      "name": "Insert rows in a table",
+      "credentials": {
+        "mySql": {
+          "id": "FGEM6dZs03ON3cQd",
+          "name": "MySQL account"
+        }
+      }
+    }
+  ],
+  "pinData": {
+    "Webhook": [
+      {
+        "json": {
+          "user_name": "subi"
+        }
+      }
+    ]
+  },
+  "connections": {
+    "Webhook": {
+      "main": [
+        [
+          {
+            "node": "Execute a SQL query",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Execute a SQL query": {
+      "main": [
+        [
+          {
+            "node": "Code in JavaScript",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Code in JavaScript": {
+      "main": [
+        [
+          {
+            "node": "AI Agent",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Google Gemini Chat Model": {
+      "ai_languageModel": [
+        [
+          {
+            "node": "AI Agent",
+            "type": "ai_languageModel",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "AI Agent": {
+      "main": [
+        [
+          {
+            "node": "Insert rows in a table",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1",
+    "binaryMode": "separate"
+  },
+  "versionId": "0bd65a77-65b0-4ed4-a543-dc1c453fe813",
+  "meta": {
+    "templateCredsSetupCompleted": true,
+    "instanceId": "c0e11bc1ab3e608047f292ca74aa50f0b0c1f5a6261602ba26701f92ba50e5cb"
+  },
+  "nodeGroups": [],
+  "id": "ktVFkl7rtlf2I1qz",
+  "tags": []
+}

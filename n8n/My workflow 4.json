@@ -1,0 +1,327 @@
+{
+  "name": "My workflow 4",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "finpilot/goals",
+        "responseMode": "responseNode",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2.1,
+      "position": [
+        -640,
+        0
+      ],
+      "id": "ff6f9f23-45b4-459d-af14-a23e21550fc3",
+      "name": "Webhook",
+      "webhookId": "f2a9bf2a-bd2c-45c5-9400-69934c813c38"
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "SELECT\n  user_name,\n    category,\n    SUM(amount) AS spent\nFROM transactions\nWHERE user_name='{{ $json.body.user_name }}'\n  AND transaction_type = 'expense'\n  AND transaction_date >= '{{ $json.body.month }}-01'\n  AND transaction_date < DATE_ADD('{{ $json.body.month }}-01', INTERVAL 1 MONTH)\nGROUP BY category;",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.mySql",
+      "typeVersion": 2.5,
+      "position": [
+        -336,
+        112
+      ],
+      "id": "3719ba4e-4aa6-4b3b-babf-554603d26a0e",
+      "name": "Execute a SQL query1",
+      "credentials": {
+        "mySql": {
+          "id": "FGEM6dZs03ON3cQd",
+          "name": "MySQL account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "select",
+        "table": {
+          "__rl": true,
+          "value": "budgets",
+          "mode": "list",
+          "cachedResultName": "budgets"
+        },
+        "where": {
+          "values": [
+            {
+              "column": "user_name",
+              "value": "={{ $json.body.user_name }}"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.mySql",
+      "typeVersion": 2.5,
+      "position": [
+        -320,
+        -64
+      ],
+      "id": "36593d02-e261-45da-a632-45a4e313f35d",
+      "name": "Select rows from a table",
+      "credentials": {
+        "mySql": {
+          "id": "FGEM6dZs03ON3cQd",
+          "name": "MySQL account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "select",
+        "table": {
+          "__rl": true,
+          "value": "goals",
+          "mode": "list",
+          "cachedResultName": "goals"
+        },
+        "where": {
+          "values": [
+            {
+              "column": "user_name",
+              "value": "={{ $json.body.user_name }}"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.mySql",
+      "typeVersion": 2.5,
+      "position": [
+        -336,
+        288
+      ],
+      "id": "f107e9b0-6deb-42f2-8732-dc8f1d9225b6",
+      "name": "Select rows from a table1",
+      "credentials": {
+        "mySql": {
+          "id": "FGEM6dZs03ON3cQd",
+          "name": "MySQL account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "const budgets = $('Select rows from a table').all().map(i => i.json);\nconst spending = $('Execute a SQL query1').all().map(i => i.json);\nconst goalRows = $('Select rows from a table1').all().map(i => i.json);\nconst budgetAnalysis = budgets.map(budget => {\n  const spendingRow = spending.find(\n    s => s.category === budget.category\n  );\n\n  const limit = Number(budget.monthly_limit) || 0;\n  const spent = Number(spendingRow?.spent) || 0;\n\n  return {\n    category: budget.category,\n    budget: limit,\n    spent,\n    remaining: limit - spent,\n    percentage_used: limit > 0\n      ? Number(((spent / limit) * 100).toFixed(2))\n      : 0\n  };\n});\n\nconst goal = goalRows[0] || null;\n\nlet goalAnalysis = null;\n\nif (goal) {\n  const target = Number(goal.target_amount);\n  const current = Number(goal.current_amount);\n  const remaining = target - current;\n\n  const today = new Date();\n  const targetDate = new Date(goal.target_date);\n\n  const monthsRemaining = Math.max(\n    1,\n    (targetDate.getFullYear() - today.getFullYear()) * 12 +\n    (targetDate.getMonth() - today.getMonth())\n  );\n\n  goalAnalysis = {\n    goal_name: goal.goal_name,\n    target_amount: target,\n    current_amount: current,\n    remaining_amount: remaining,\n    target_date: goal.target_date,\n    months_remaining: monthsRemaining,\n    required_monthly_saving:\n      Number((remaining / monthsRemaining).toFixed(2))\n  };\n}\n\nreturn [\n  {\n    json: {\n      budget_analysis: budgetAnalysis,\n      goal_analysis: goalAnalysis\n    }\n  }\n];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        64,
+        96
+      ],
+      "id": "0962cbee-3c81-4b5f-8c30-9abd80af82cc",
+      "name": "Code in JavaScript"
+    },
+    {
+      "parameters": {
+        "promptType": "define",
+        "text": "=Analyze this financial data.\n\nBudget analysis:\n\n{{ JSON.stringify($json.budget_analysis) }}\n\nSavings goal:\n\n{{ JSON.stringify($json.goal_analysis) }}\n\nProvide:\n\n1. A short budget summary.\n2. Categories that are close to or over their budget.\n3. The amount remaining in each relevant budget.\n4. A savings-goal progress summary.\n5. The required monthly saving to reach the goal.\n6. Two practical observations based only on the data.\n\nReturn ONLY valid JSON:\n\n{\n  \"budget_summary\": \"\",\n  \"budget_alerts\": [],\n  \"goal_summary\": \"\",\n  \"observations\": []\n}",
+        "options": {
+          "systemMessage": "=You are FinPilot, a personal finance decision-support agent.\n\nAnalyze the user's budget and savings-goal data.\n\nYour job is to explain:\n- Budget usage\n- Categories approaching or exceeding their budgets\n- Remaining budget\n- Savings goal progress\n- Required monthly savings\n\nRules:\n1. Use only the supplied data.\n2. Do not invent financial information.\n3. Do not provide investment advice.\n4. Do not recommend financial products.\n5. Do not make decisions for the user.\n6. Clearly distinguish calculations from observations.\n7. Use ₹ for monetary values.\n8. Be concise and practical."
+        }
+      },
+      "type": "@n8n/n8n-nodes-langchain.agent",
+      "typeVersion": 3.1,
+      "position": [
+        224,
+        96
+      ],
+      "id": "a6691f63-45d5-4b09-8c80-a82523c716e5",
+      "name": "AI Agent"
+    },
+    {
+      "parameters": {
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.lmChatGoogleGemini",
+      "typeVersion": 1.1,
+      "position": [
+        96,
+        304
+      ],
+      "id": "c2fec4c7-0aa2-4fe2-afe3-778be4d5b480",
+      "name": "Google Gemini Chat Model",
+      "notesInFlow": true,
+      "credentials": {
+        "googlePalmApi": {
+          "id": "XcZOjdrfoSvcDjSk",
+          "name": "Google Gemini(PaLM) Api account"
+        }
+      },
+      "notes": "You are FinPilot, a personal finance decision-support agent.\n\nAnalyze the user's budget and savings-goal data.\n\nYour job is to explain:\n- Budget usage\n- Categories approaching or exceeding their budgets\n- Remaining budget\n- Savings goal progress\n- Required monthly savings\n\nRules:\n1. Use only the supplied data.\n2. Do not invent financial information.\n3. Do not provide investment advice.\n4. Do not recommend financial products.\n5. Do not make decisions for the user.\n6. Clearly distinguish calculations from observations.\n7. Use ₹ for monetary values.\n8. Be concise and practical."
+    },
+    {
+      "parameters": {
+        "jsCode": "const output = $json.output;\n\nlet result;\n\nif (typeof output === 'string') {\n  result = JSON.parse(output);\n} else {\n  result = output;\n}\n\nreturn [\n  {\n    json: result\n  }\n];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        592,
+        96
+      ],
+      "id": "dca08a05-4845-49bc-b1ce-6e9816f456ad",
+      "name": "Code in JavaScript1"
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.5,
+      "position": [
+        816,
+        96
+      ],
+      "id": "f742df21-b6d4-4abc-9f34-0a4203418bc6",
+      "name": "Respond to Webhook"
+    },
+    {
+      "parameters": {
+        "numberInputs": 3
+      },
+      "type": "n8n-nodes-base.merge",
+      "typeVersion": 3.2,
+      "position": [
+        -112,
+        112
+      ],
+      "id": "9c2e794a-193e-42d9-9a70-749beaeb9741",
+      "name": "Merge"
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "Webhook": {
+      "main": [
+        [
+          {
+            "node": "Execute a SQL query1",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Select rows from a table",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Select rows from a table1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Execute a SQL query1": {
+      "main": [
+        [
+          {
+            "node": "Merge",
+            "type": "main",
+            "index": 1
+          }
+        ]
+      ]
+    },
+    "Select rows from a table1": {
+      "main": [
+        [
+          {
+            "node": "Merge",
+            "type": "main",
+            "index": 2
+          }
+        ]
+      ]
+    },
+    "Select rows from a table": {
+      "main": [
+        [
+          {
+            "node": "Merge",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Code in JavaScript": {
+      "main": [
+        [
+          {
+            "node": "AI Agent",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Google Gemini Chat Model": {
+      "ai_languageModel": [
+        [
+          {
+            "node": "AI Agent",
+            "type": "ai_languageModel",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "AI Agent": {
+      "main": [
+        [
+          {
+            "node": "Code in JavaScript1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Code in JavaScript1": {
+      "main": [
+        [
+          {
+            "node": "Respond to Webhook",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Merge": {
+      "main": [
+        [
+          {
+            "node": "Code in JavaScript",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": true,
+  "settings": {
+    "executionOrder": "v1",
+    "binaryMode": "separate"
+  },
+  "versionId": "107e1ca2-3ad1-4725-a614-de98fb616f17",
+  "meta": {
+    "templateCredsSetupCompleted": true,
+    "instanceId": "c0e11bc1ab3e608047f292ca74aa50f0b0c1f5a6261602ba26701f92ba50e5cb"
+  },
+  "nodeGroups": [],
+  "id": "ejCjtjO9dgMDQ0nP",
+  "tags": []
+}

@@ -1,0 +1,238 @@
+{
+  "name": "My workflow",
+  "nodes": [
+    {
+      "parameters": {
+        "modelName": "models/gemini-3.5-flash-lite",
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.lmChatGoogleGemini",
+      "typeVersion": 1.1,
+      "position": [
+        -1072,
+        112
+      ],
+      "id": "deb1ffa9-e263-4c42-a1c1-f3c44cc9ca23",
+      "name": "Google Gemini Chat Model",
+      "credentials": {
+        "googlePalmApi": {
+          "id": "XcZOjdrfoSvcDjSk",
+          "name": "Google Gemini(PaLM) Api account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "finpilot/transactions",
+        "responseMode": "responseNode",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2.1,
+      "position": [
+        -1632,
+        -112
+      ],
+      "id": "822fae2d-cd9a-47f9-a830-cd52a88ebf7c",
+      "name": "Webhook",
+      "webhookId": "78fd5ff0-c6c6-45ea-8bb0-59e7be57ae5e"
+    },
+    {
+      "parameters": {
+        "binaryPropertyName": "file",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.extractFromFile",
+      "typeVersion": 1.1,
+      "position": [
+        -1408,
+        -112
+      ],
+      "id": "11a101cb-b251-441a-a175-c238f8bd2ac7",
+      "name": "Extract from File"
+    },
+    {
+      "parameters": {
+        "promptType": "define",
+        "text": "=You are FinPilot's financial transaction categorization agent.\n\nAnalyze this transaction:\n\nMerchant: {{ $json.merchant }}\nAmount: ₹{{ $json.amount }}\nType: {{ $json.type }}\nDate: {{ $json.date }}\n\nChoose exactly ONE category from:\n\n- Food\n- Transport\n- Shopping\n- Entertainment\n- Bills\n- Subscription\n- Healthcare\n- Education\n- Rent\n- Salary\n- Other\n\nThen determine an appropriate subcategory.\n\nExamples:\n\nSwiggy → Food → Food Delivery\nZomato → Food → Food Delivery\nUber → Transport → Cab\nAmazon → Shopping → Online Shopping\nNetflix → Subscription → Entertainment Subscription\nSpotify → Subscription → Music Subscription\nAirtel → Bills → Mobile Bill\nElectricity Board → Bills → Electricity\nApollo Hospital → Healthcare → Medical\nCollege Fee → Education → Tuition\nHouse Rent → Rent → Monthly Rent\nCompany Salary → Salary → Monthly Salary\n\nRules:\n1. The category MUST be exactly one of the categories listed above.\n2. The subcategory should be specific and relevant to the merchant.\n3. Do not create additional top-level categories.\n4. Return ONLY valid JSON.\n5. Do not include markdown or explanations.\n\nOutput format:\n\n[{\n  \"category\": \"Food\",\n  \"subcategory\": \"Food Delivery\"\n}]",
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.agent",
+      "typeVersion": 3.1,
+      "position": [
+        -1056,
+        -112
+      ],
+      "id": "1b2f7e42-81f5-473c-a219-19820678298e",
+      "name": "AI Agent1"
+    },
+    {
+      "parameters": {
+        "jsCode": "return items.map(item => {\n  const data = item.json;\n\n  return {\n    json: {\n      user_name:data.user_name,\n      date: data.date,\n      merchant: data.description,\n      amount: Number(data.amount),\n      type: data.type?.toUpperCase() === 'DEBIT' ? 'expense' : 'income',\n      category: null,\n      subcategory: null\n    }\n  };\n});;"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -1200,
+        -112
+      ],
+      "id": "263c4d7d-09c7-452b-aad2-704552c2b8eb",
+      "name": "Code in JavaScript"
+    },
+    {
+      "parameters": {
+        "table": {
+          "__rl": true,
+          "value": "transactions",
+          "mode": "list",
+          "cachedResultName": "transactions"
+        },
+        "dataMode": "defineBelow",
+        "valuesToSend": {
+          "values": [
+            {
+              "column": "user_name",
+              "value": "={{ $('Code in JavaScript').item.json.user_name }}"
+            },
+            {
+              "column": "transaction_date",
+              "value": "={{ $('Code in JavaScript').item.json.date }}"
+            },
+            {
+              "column": "merchant",
+              "value": "={{ $('Code in JavaScript').item.json.merchant }}"
+            },
+            {
+              "column": "amount",
+              "value": "={{ $('Code in JavaScript').item.json.amount }}"
+            },
+            {
+              "column": "transaction_type",
+              "value": "={{ $('Code in JavaScript').item.json.type }}"
+            },
+            {
+              "column": "category",
+              "value": "={{ JSON.parse($json.output)[0].category }}"
+            },
+            {
+              "column": "subcategory",
+              "value": "={{ JSON.parse($json.output)[0].subcategory }}"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.mySql",
+      "typeVersion": 2.5,
+      "position": [
+        -688,
+        -112
+      ],
+      "id": "58ee1d09-e5b3-471e-8380-116f5d47d7e6",
+      "name": "Insert rows in a table",
+      "credentials": {
+        "mySql": {
+          "id": "FGEM6dZs03ON3cQd",
+          "name": "MySQL account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.5,
+      "position": [
+        -464,
+        -112
+      ],
+      "id": "1b6fadcc-c6d5-4c88-8a98-6f01367b1945",
+      "name": "Respond to Webhook"
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "Google Gemini Chat Model": {
+      "ai_languageModel": [
+        [
+          {
+            "node": "AI Agent1",
+            "type": "ai_languageModel",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Webhook": {
+      "main": [
+        [
+          {
+            "node": "Extract from File",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Extract from File": {
+      "main": [
+        [
+          {
+            "node": "Code in JavaScript",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "AI Agent1": {
+      "main": [
+        [
+          {
+            "node": "Insert rows in a table",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Code in JavaScript": {
+      "main": [
+        [
+          {
+            "node": "AI Agent1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Insert rows in a table": {
+      "main": [
+        [
+          {
+            "node": "Respond to Webhook",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": true,
+  "settings": {
+    "executionOrder": "v1",
+    "binaryMode": "separate"
+  },
+  "versionId": "8561b850-421c-4c21-8736-e13e47a01d82",
+  "meta": {
+    "templateCredsSetupCompleted": true,
+    "instanceId": "c0e11bc1ab3e608047f292ca74aa50f0b0c1f5a6261602ba26701f92ba50e5cb"
+  },
+  "nodeGroups": [],
+  "id": "f5OKL170Be3zf3QX",
+  "tags": []
+}

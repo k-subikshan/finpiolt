@@ -1,0 +1,176 @@
+{
+  "name": "My workflow 2",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "finpilot/analyze",
+        "responseMode": "responseNode",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2.1,
+      "position": [
+        -592,
+        -16
+      ],
+      "id": "3fb1a45d-cd1d-4203-8bde-c408ce598dfb",
+      "name": "Webhook",
+      "webhookId": "483d3184-4080-49a6-b0cf-a9f3622da430"
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "SELECT\n    transaction_date,\n    merchant,\n    amount,\n    transaction_type,\n    category,\n    subcategory\nFROM transactions\nWHERE user_name = '{{ $json.body.user_name }}'\n  AND transaction_date >= '{{ $json.body.month }}-01'\n  AND transaction_date < DATE_ADD('{{ $json.body.month }}-01', INTERVAL 1 MONTH)\nORDER BY transaction_date;",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.mySql",
+      "typeVersion": 2.5,
+      "position": [
+        -368,
+        -16
+      ],
+      "id": "f2d69ea9-47e2-441e-b4b4-787d19dc6f00",
+      "name": "Execute a SQL query",
+      "credentials": {
+        "mySql": {
+          "id": "FGEM6dZs03ON3cQd",
+          "name": "MySQL account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "const transactions = $input.all().map(item => item.json);\n\nlet totalIncome = 0;\nlet totalExpenses = 0;\n\nconst categories = {};\n\nfor (const t of transactions) {\n  const amount = Number(t.amount) || 0;\n\n  if (t.transaction_type === 'income') {\n    totalIncome += amount;\n  } else {\n    totalExpenses += amount;\n\n    const category = t.category || 'Other';\n\n    if (!categories[category]) {\n      categories[category] = 0;\n    }\n\n    categories[category] += amount;\n  }\n}\n\nconst sortedCategories = Object.entries(categories)\n  .sort((a, b) => b[1] - a[1]);\n\nconst topCategory = sortedCategories.length\n  ? sortedCategories[0][0]\n  : null;\n\nconst topCategoryAmount = sortedCategories.length\n  ? sortedCategories[0][1]\n  : 0;\n\nreturn [\n  {\n    json: {\n      totalIncome,\n      totalExpenses,\n      savings: totalIncome - totalExpenses,\n      topCategory,\n      topCategoryAmount,\n      categoryBreakdown: categories,\n      transactionCount: transactions.length\n    }\n  }\n];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -192,
+        -16
+      ],
+      "id": "a5a21280-d167-44fd-84eb-107453be2d46",
+      "name": "Code in JavaScript"
+    },
+    {
+      "parameters": {
+        "promptType": "define",
+        "text": "=You are FinPilot, a personal finance decision-support assistant.\n\nAnalyze the user's monthly financial data.\n\nIncome: ₹{{ $json.totalIncome }}\nExpenses: ₹{{ $json.totalExpenses }}\nSavings: ₹{{ $json.savings }}\nTop spending category: {{ $json.topCategory }}\nTop category spending: ₹{{ $json.topCategoryAmount }}\nTransaction count: {{ $json.transactionCount }}\n\nCategory breakdown:\n{{ JSON.stringify($json.categoryBreakdown) }}\n\nProvide a concise financial summary.\n\nInclude:\n1. Total income\n2. Total expenses\n3. Total savings\n4. Highest spending category\n5. Two important spending observations\n6. Two practical action items\n\nDo not provide investment advice.\nDo not recommend financial products.\nDo not make assumptions about transactions that are not provided.\n\nReturn valid JSON:\n\n{\n  \"summary\": \"\",\n  \"observations\": [],\n  \"action_items\": []\n}",
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.agent",
+      "typeVersion": 3.1,
+      "position": [
+        32,
+        -16
+      ],
+      "id": "ea401927-e118-4420-b783-9336bb4eb357",
+      "name": "AI Agent"
+    },
+    {
+      "parameters": {
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.lmChatGoogleGemini",
+      "typeVersion": 1.1,
+      "position": [
+        32,
+        192
+      ],
+      "id": "bdc13ab4-e835-4fa0-8c31-253021e59bf3",
+      "name": "Google Gemini Chat Model",
+      "credentials": {
+        "googlePalmApi": {
+          "id": "XcZOjdrfoSvcDjSk",
+          "name": "Google Gemini(PaLM) Api account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ $json.output }}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.5,
+      "position": [
+        400,
+        -16
+      ],
+      "id": "5427fb2c-7930-4969-b23a-277569303bab",
+      "name": "Respond to Webhook"
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "Webhook": {
+      "main": [
+        [
+          {
+            "node": "Execute a SQL query",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Execute a SQL query": {
+      "main": [
+        [
+          {
+            "node": "Code in JavaScript",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Code in JavaScript": {
+      "main": [
+        [
+          {
+            "node": "AI Agent",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Google Gemini Chat Model": {
+      "ai_languageModel": [
+        [
+          {
+            "node": "AI Agent",
+            "type": "ai_languageModel",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "AI Agent": {
+      "main": [
+        [
+          {
+            "node": "Respond to Webhook",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": true,
+  "settings": {
+    "executionOrder": "v1",
+    "binaryMode": "separate"
+  },
+  "versionId": "c0d98492-625a-4d36-b87f-94bd0b1f9932",
+  "meta": {
+    "templateCredsSetupCompleted": true,
+    "instanceId": "c0e11bc1ab3e608047f292ca74aa50f0b0c1f5a6261602ba26701f92ba50e5cb"
+  },
+  "nodeGroups": [],
+  "id": "5VuXVMp3akaLEJis",
+  "tags": []
+}

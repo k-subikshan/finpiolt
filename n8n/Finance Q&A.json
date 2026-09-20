@@ -1,0 +1,202 @@
+{
+  "name": "Finance Q&A",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "finpilot/ask",
+        "responseMode": "responseNode",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2.1,
+      "position": [
+        -624,
+        -16
+      ],
+      "id": "add29133-44a0-4637-87dc-961f4535c696",
+      "name": "Webhook",
+      "webhookId": "0c6b6485-9dcd-48bc-ab4c-de620601747f"
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "SELECT\n    transaction_date,\n    merchant,\n    amount,\n    transaction_type,\n    category,\n    subcategory\nFROM transactions\nWHERE user_name = '{{ $json.body.user_name }}'\nORDER BY transaction_date DESC;",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.mySql",
+      "typeVersion": 2.5,
+      "position": [
+        -400,
+        -16
+      ],
+      "id": "7adee37c-3ebf-4152-ad8c-7d9291e5e0b4",
+      "name": "Execute a SQL query",
+      "credentials": {
+        "mySql": {
+          "id": "FGEM6dZs03ON3cQd",
+          "name": "MySQL account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "const transactions = $input.all().map(item => item.json);\n\nconst webhook = $('Webhook').first().json.body;\n\nconst userName =$('Webhook').first().json.user_name;\nconst question =$('Webhook').first().json.question;\nconst month = $('Webhook').first().json.month;\n\nlet totalIncome = 0;\nlet totalExpenses = 0;\n\nconst categorySpending = {};\n\nfor (const transaction of transactions) {\n  const amount = Number(transaction.amount) || 0;\n\n  if (transaction.transaction_type === 'income') {\n    totalIncome += amount;\n  } else {\n    totalExpenses += amount;\n\n    const category = transaction.category || 'Other';\n\n    categorySpending[category] =\n      (categorySpending[category] || 0) + amount;\n  }\n}\n\nreturn [\n  {\n    json: {\n      user_name:$('Webhook').first().json.user_name,\n      question,\n      month,\n      total_income: totalIncome,\n      total_expenses: totalExpenses,\n      savings: totalIncome - totalExpenses,\n      category_spending: categorySpending,\n      transactions\n    }\n  }\n];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -176,
+        -16
+      ],
+      "id": "b75a89f0-b1e2-4c9b-afe5-7f1b74dab427",
+      "name": "Code — Prepare Q&A Context"
+    },
+    {
+      "parameters": {
+        "promptType": "define",
+        "text": "=User: {{ $json.user_name }}\n\nMonth: {{ $json.month }}\n\nUser's question:\n{{ $json.question }}\n\nTotal income:\n₹{{ $json.total_income }}\n\nTotal expenses:\n₹{{ $json.total_expenses }}\n\nSavings:\n₹{{ $json.savings }}\n\nCategory spending:\n{{ JSON.stringify($json.category_spending) }}\n\nTransactions:\n{{ JSON.stringify($json.transactions) }}\n\nAnswer the user's question using only this information.\n\nIf the user asks for a monthly summary, include:\n- Income\n- Expenses\n- Savings\n- Major spending categories\n- Two useful observations\n\nReturn ONLY valid JSON:\n\n{\n  \"answer\": \"\",\n  \"key_facts\": [],\n  \"observations\": []\n}",
+        "options": {
+          "systemMessage": "You are FinPilot, an AI personal finance decision-support agent.\n\nAnswer the user's questions using only the financial data provided.\n\nYou can explain:\n- Income\n- Expenses\n- Savings\n- Category spending\n- Individual transactions\n- Spending patterns\n- Monthly financial summaries\n\nRules:\n1. Use only the supplied data.\n2. Do not invent financial information.\n3. If the data does not contain enough information, say so.\n4. Do not provide investment advice.\n5. Do not recommend stocks, mutual funds, crypto, loans, insurance, or financial products.\n6. Do not make financial decisions for the user.\n7. Clearly distinguish calculated facts from observations.\n8. Use ₹ for monetary values.\n9. Keep answers concise and easy to understand."
+        }
+      },
+      "type": "@n8n/n8n-nodes-langchain.agent",
+      "typeVersion": 3.1,
+      "position": [
+        48,
+        -16
+      ],
+      "id": "bc58f055-e81a-4da8-bda0-2001e9d7c4f1",
+      "name": "AI Agent — Finance Q&A"
+    },
+    {
+      "parameters": {
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.lmChatGoogleGemini",
+      "typeVersion": 1.1,
+      "position": [
+        -96,
+        192
+      ],
+      "id": "1b727251-6130-4351-8130-33d49f14e8d4",
+      "name": "Google Gemini Chat Model",
+      "credentials": {
+        "googlePalmApi": {
+          "id": "XcZOjdrfoSvcDjSk",
+          "name": "Google Gemini(PaLM) Api account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "const output = $json.output;\n\nlet result;\n\nif (typeof output === 'string') {\n  result = JSON.parse(output);\n} else {\n  result = output;\n}\n\nreturn [\n  {\n    json: result\n  }\n];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        416,
+        -16
+      ],
+      "id": "8c59d1cb-d4ec-4043-963b-36f0989019c5",
+      "name": "Code in JavaScript"
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ $json }}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.5,
+      "position": [
+        640,
+        -16
+      ],
+      "id": "76515bbc-a1de-4740-bbc2-23b73834d028",
+      "name": "Respond to Webhook"
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "Webhook": {
+      "main": [
+        [
+          {
+            "node": "Execute a SQL query",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Execute a SQL query": {
+      "main": [
+        [
+          {
+            "node": "Code — Prepare Q&A Context",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Code — Prepare Q&A Context": {
+      "main": [
+        [
+          {
+            "node": "AI Agent — Finance Q&A",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Google Gemini Chat Model": {
+      "ai_languageModel": [
+        [
+          {
+            "node": "AI Agent — Finance Q&A",
+            "type": "ai_languageModel",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "AI Agent — Finance Q&A": {
+      "main": [
+        [
+          {
+            "node": "Code in JavaScript",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Code in JavaScript": {
+      "main": [
+        [
+          {
+            "node": "Respond to Webhook",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": true,
+  "settings": {
+    "executionOrder": "v1",
+    "binaryMode": "separate"
+  },
+  "versionId": "a02007dd-a1a5-49ff-855e-86e4abc97f82",
+  "meta": {
+    "templateCredsSetupCompleted": true,
+    "instanceId": "c0e11bc1ab3e608047f292ca74aa50f0b0c1f5a6261602ba26701f92ba50e5cb"
+  },
+  "nodeGroups": [],
+  "id": "oFDL5Uo5EFQJ7tAH",
+  "tags": []
+}

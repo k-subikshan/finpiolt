@@ -1,0 +1,206 @@
+{
+  "name": "My workflow 5",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "finpilot/unusual",
+        "responseMode": "responseNode",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2.1,
+      "position": [
+        -656,
+        -16
+      ],
+      "id": "eeb4f5f9-f90b-4b5e-aee6-2cf74a6bbc3e",
+      "name": "Webhook",
+      "webhookId": "d6f4f1c6-d7b2-4acb-8828-bbe4faf173a9"
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "SELECT\n    transaction_date,\n    merchant,\n    amount,\n    transaction_type,\n    category,\n    subcategory\nFROM transactions\nWHERE user_name = '{{ $json.body.user_name }}'\n  AND transaction_type = 'expense'\nORDER BY transaction_date;",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.mySql",
+      "typeVersion": 2.5,
+      "position": [
+        -432,
+        -16
+      ],
+      "id": "24ff4c38-68ea-45dd-980e-87ff8b05ab28",
+      "name": "Execute a SQL query",
+      "credentials": {
+        "mySql": {
+          "id": "FGEM6dZs03ON3cQd",
+          "name": "MySQL account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "const transactions = $input.all().map(item => item.json);\n\nconst amounts = transactions\n  .map(t => Number(t.amount) || 0)\n  .filter(amount => amount > 0);\n\nif (amounts.length === 0) {\n  return [\n    {\n      json: {\n        transaction_count: 0,\n        average_expense: 0,\n        transactions: []\n      }\n    }\n  ];\n}\n\nconst average =\n  amounts.reduce((sum, amount) => sum + amount, 0) / amounts.length;\n\nconst sortedAmounts = [...amounts].sort((a, b) => a - b);\n\nconst median =\n  sortedAmounts.length % 2 === 0\n    ? (sortedAmounts[sortedAmounts.length / 2 - 1] +\n       sortedAmounts[sortedAmounts.length / 2]) / 2\n    : sortedAmounts[Math.floor(sortedAmounts.length / 2)];\n\nconst analyzedTransactions = transactions.map(transaction => {\n  const amount = Number(transaction.amount) || 0;\n\n  return {\n    date: transaction.transaction_date,\n    merchant: transaction.merchant,\n    amount,\n    category: transaction.category,\n    subcategory: transaction.subcategory,\n    compared_to_average:\n      average > 0\n        ? Number((amount / average).toFixed(2))\n        : 0\n  };\n});\n\nreturn [\n  {\n    json: {\n      transaction_count: transactions.length,\n      average_expense: Number(average.toFixed(2)),\n      median_expense: Number(median.toFixed(2)),\n      transactions: analyzedTransactions\n    }\n  }\n];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -208,
+        -16
+      ],
+      "id": "7b708aee-0c91-40a5-80fb-fbf914a9dcdf",
+      "name": "Code in JavaScript"
+    },
+    {
+      "parameters": {
+        "promptType": "define",
+        "text": "=Analyze the following spending data.\n\nAverage expense:\n₹{{ $json.average_expense }}\n\nMedian expense:\n₹{{ $json.median_expense }}\n\nTransaction count:\n{{ $json.transaction_count }}\n\nTransactions:\n\n{{ JSON.stringify($json.transactions) }}\n\nIdentify transactions that appear unusually large compared with the user's normal spending.\n\nFor each unusual transaction, provide:\n- Merchant\n- Amount\n- Date\n- Category\n- Why it stands out\n\nDo not assume that an unusual transaction is fraudulent.\n\nReturn ONLY valid JSON:\n\n{\n  \"unusual_transactions\": [],\n  \"summary\": \"\",\n  \"observations\": []\n}",
+        "options": {
+          "systemMessage": "You are FinPilot, an AI personal finance decision-support agent.\n\nYour task is to identify potentially unusual spending transactions.\n\nRules:\n1. Use only the supplied transaction data.\n2. Do not invent transactions or financial information.\n3. A transaction may be considered unusual when it is substantially larger than the user's typical expense amount.\n4. Repeated normal expenses should not automatically be considered unusual.\n5. Do not provide investment advice.\n6. Do not recommend financial products.\n7. Do not make financial decisions for the user.\n8. Clearly distinguish calculated facts from observations.\n9. Use ₹ for monetary values.\n10. Be concise."
+        }
+      },
+      "type": "@n8n/n8n-nodes-langchain.agent",
+      "typeVersion": 3.1,
+      "position": [
+        16,
+        -16
+      ],
+      "id": "1f3339f5-5752-4839-af14-4fa9f5fa52db",
+      "name": "AI Agent"
+    },
+    {
+      "parameters": {
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.lmChatGoogleGemini",
+      "typeVersion": 1.1,
+      "position": [
+        -128,
+        192
+      ],
+      "id": "ecc47874-2b40-4555-a0aa-117f7e8d2fe5",
+      "name": "Google Gemini Chat Model",
+      "credentials": {
+        "googlePalmApi": {
+          "id": "XcZOjdrfoSvcDjSk",
+          "name": "Google Gemini(PaLM) Api account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.5,
+      "position": [
+        560,
+        -16
+      ],
+      "id": "47bf9c53-f7f3-4f01-9811-8e21e8a1129a",
+      "name": "Respond to Webhook"
+    },
+    {
+      "parameters": {
+        "jsCode": "const output = $json.output;\n\nlet result;\n\nif (typeof output === 'string') {\n  result = JSON.parse(output);\n} else {\n  result = output;\n}\n\nreturn [\n  {\n    json: result\n  }\n];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        320,
+        -16
+      ],
+      "id": "ba3b97bf-9d32-4711-9afa-ce019edf5351",
+      "name": "Code in JavaScript1"
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "Webhook": {
+      "main": [
+        [
+          {
+            "node": "Execute a SQL query",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Execute a SQL query": {
+      "main": [
+        [
+          {
+            "node": "Code in JavaScript",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Code in JavaScript": {
+      "main": [
+        [
+          {
+            "node": "AI Agent",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Google Gemini Chat Model": {
+      "ai_languageModel": [
+        [
+          {
+            "node": "AI Agent",
+            "type": "ai_languageModel",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "AI Agent": {
+      "main": [
+        [
+          {
+            "node": "Code in JavaScript1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Respond to Webhook": {
+      "main": [
+        []
+      ]
+    },
+    "Code in JavaScript1": {
+      "main": [
+        [
+          {
+            "node": "Respond to Webhook",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1",
+    "binaryMode": "separate"
+  },
+  "versionId": "e4f94596-cf32-48b8-b615-77ffcd4c3229",
+  "meta": {
+    "templateCredsSetupCompleted": true,
+    "instanceId": "c0e11bc1ab3e608047f292ca74aa50f0b0c1f5a6261602ba26701f92ba50e5cb"
+  },
+  "nodeGroups": [],
+  "id": "TwqqiMxwIs7F02qp",
+  "tags": []
+}

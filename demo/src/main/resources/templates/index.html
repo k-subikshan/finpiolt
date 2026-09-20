@@ -1,0 +1,661 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+    <title>FinPilot</title>
+
+    <link rel="stylesheet" th:href="@{/css/style.css}">
+</head>
+
+<body>
+
+<div class="app">
+
+    <!-- SIDEBAR -->
+    <aside class="sidebar">
+
+        <div class="brand">
+            <div class="brand-icon">F</div>
+
+            <div>
+                <h2>FinPilot</h2>
+                <span>Financial Intelligence</span>
+            </div>
+        </div>
+
+        <nav>
+
+            <button class="nav-item active"
+                    onclick="showPage('dashboard', this)">
+                <span>⌂</span>
+                Dashboard
+            </button>
+
+            <button class="nav-item"
+                    onclick="showPage('transactions', this)">
+                <span>↔</span>
+                Transactions
+            </button>
+
+            <button class="nav-item"
+                    onclick="showPage('budgets', this)">
+                <span>◫</span>
+                Budgets
+            </button>
+
+            <button class="nav-item"
+                    onclick="showPage('subscriptions', this)">
+                <span>◷</span>
+                Subscriptions
+            </button>
+
+            <button class="nav-item"
+                    onclick="showPage('insights', this)">
+                <span>✦</span>
+                Insights
+            </button>
+
+            <button class="nav-item"
+                    onclick="showPage('goals', this)">
+                <span>◎</span>
+                Goals
+            </button>
+
+        </nav>
+
+        <div class="sidebar-bottom">
+
+            <button class="ask-sidebar"
+                    onclick="openAsk()">
+
+                <span>✦</span>
+
+                <div>
+                    <strong>Ask FinPilot</strong>
+                    <small>AI financial assistant</small>
+                </div>
+
+            </button>
+
+            <div class="user">
+
+                <div class="avatar">S</div>
+
+                <div>
+                    <strong id="sidebarUser">Subi</strong>
+                    <small>Personal account</small>
+                </div>
+
+            </div>
+
+        </div>
+
+    </aside>
+
+
+    <!-- MAIN -->
+    <main class="main">
+
+        <!-- TOP BAR -->
+        <header class="topbar">
+
+            <div>
+
+                <span class="eyebrow">
+                    PERSONAL FINANCE
+                </span>
+
+                <h1 id="pageTitle">
+                    Good evening, Subi.
+                </h1>
+
+                <p id="pageSubtitle">
+                    Here's your financial picture.
+                </p>
+
+            </div>
+
+            <div class="top-actions">
+
+                <button class="top-button"
+                        onclick="toggleTheme()">
+                    ◐
+                </button>
+
+                <button class="top-button">
+                    ♧
+                </button>
+
+                <button class="upload-button"
+                        onclick="openUpload()">
+                    ↑ Upload statement
+                </button>
+
+            </div>
+
+        </header>
+
+
+        <!-- ================= DASHBOARD ================= -->
+
+        <section id="dashboard"
+                 class="page active">
+
+            <div class="hero">
+
+                <div>
+
+                    <span class="eyebrow hero-label">
+                        MONTHLY OVERVIEW
+                    </span>
+
+                    <h2>
+                        Your money, clearly understood.
+                    </h2>
+
+                    <p>
+                        FinPilot turns your transactions into
+                        simple financial insights.
+                    </p>
+
+                </div>
+
+                <button class="hero-button"
+                        onclick="openAsk()">
+                    Ask FinPilot →
+                </button>
+
+            </div>
+
+
+            <!-- STAT CARDS -->
+
+            <div class="stats">
+
+                <div class="stat-card">
+
+                    <div class="stat-header">
+                        <span>Income</span>
+                        <b>↑</b>
+                    </div>
+
+                    <strong id="income">
+                        ₹0
+                    </strong>
+
+                    <small>
+                        This month
+                    </small>
+
+                </div>
+
+
+                <div class="stat-card">
+
+                    <div class="stat-header">
+                        <span>Expenses</span>
+                        <b>↓</b>
+                    </div>
+
+                    <strong id="expenses">
+                        ₹0
+                    </strong>
+
+                    <small>
+                        This month
+                    </small>
+
+                </div>
+
+
+                <div class="stat-card">
+
+                    <div class="stat-header">
+                        <span>Savings</span>
+                        <b>◈</b>
+                    </div>
+
+                    <strong id="savings">
+                        ₹0
+                    </strong>
+
+                    <small>
+                        Income minus expenses
+                    </small>
+
+                </div>
+
+
+                <div class="stat-card">
+
+                    <div class="stat-header">
+                        <span>Transactions</span>
+                        <b>↔</b>
+                    </div>
+
+                    <strong id="transactionCount">
+                        0
+                    </strong>
+
+                    <small>
+                        Recorded transactions
+                    </small>
+
+                </div>
+
+            </div>
+
+
+            <!-- MAIN GRID -->
+
+            <div class="grid">
+
+                <!-- SPENDING -->
+
+                <div class="panel">
+
+                    <div class="panel-header">
+
+                        <div>
+                            <span class="panel-label">
+                                SPENDING
+                            </span>
+
+                            <h3>
+                                Where your money goes
+                            </h3>
+                        </div>
+
+                        <select id="monthSelect">
+                            <option value="2026-09">
+                                September
+                            </option>
+                        </select>
+
+                    </div>
+
+                    <div id="categoryChart"
+                         class="category-chart">
+                    </div>
+
+                </div>
+
+
+                <!-- AI INSIGHTS -->
+
+                <div class="panel">
+
+                    <div class="panel-header">
+
+                        <div>
+                            <span class="panel-label">
+                                AI INSIGHT
+                            </span>
+
+                            <h3>
+                                FinPilot noticed
+                            </h3>
+                        </div>
+
+                    </div>
+
+                    <div id="insightsContainer">
+
+                        <div class="loading">
+                            Loading insights...
+                        </div>
+
+                    </div>
+
+                </div>
+
+            </div>
+
+
+            <!-- LOWER GRID -->
+
+            <div class="grid">
+
+                <!-- BUDGETS -->
+
+                <div class="panel">
+
+                    <div class="panel-header">
+
+                        <div>
+                            <span class="panel-label">
+                                BUDGETS
+                            </span>
+
+                            <h3>
+                                Monthly budgets
+                            </h3>
+
+                        </div>
+
+                        <button class="text-button"
+                                onclick="showPageByName('budgets')">
+                            View all →
+                        </button>
+
+                    </div>
+
+                    <div id="budgetContainer">
+                        Loading...
+                    </div>
+
+                </div>
+
+
+                <!-- GOAL -->
+
+                <div class="panel">
+
+                    <div class="panel-header">
+
+                        <div>
+                            <span class="panel-label">
+                                SAVINGS GOAL
+                            </span>
+
+                            <h3 id="goalName">
+                                Emergency Fund
+                            </h3>
+
+                        </div>
+
+                        <span id="goalPercent"
+                              class="goal-percent">
+                            0%
+                        </span>
+
+                    </div>
+
+                    <div class="goal-value"
+                         id="goalCurrent">
+                        ₹0
+                    </div>
+
+                    <div class="progress">
+
+                        <div id="goalProgress"
+                             style="width:0%">
+                        </div>
+
+                    </div>
+
+                    <p id="goalDetails"
+                       class="muted">
+                        Loading goal...
+                    </p>
+
+                </div>
+
+            </div>
+
+        </section>
+
+
+        <!-- ================= TRANSACTIONS ================= -->
+
+        <section id="transactions"
+                 class="page">
+
+            <div class="page-heading">
+
+                <div>
+                    <span class="panel-label">
+                        ACTIVITY
+                    </span>
+
+                    <h2>
+                        Transactions
+                    </h2>
+                </div>
+
+                <button class="primary-button"
+                        onclick="openUpload()">
+                    Upload statement
+                </button>
+
+            </div>
+
+            <div class="panel">
+
+                <div class="table-wrapper">
+
+                    <table>
+
+                        <thead>
+
+                        <tr>
+                            <th>Date</th>
+                            <th>Merchant</th>
+                            <th>Category</th>
+                            <th>Type</th>
+                            <th>Amount</th>
+                        </tr>
+
+                        </thead>
+
+                        <tbody id="transactionTable">
+
+                        <tr>
+                            <td colspan="5">
+                                Loading...
+                            </td>
+                        </tr>
+
+                        </tbody>
+
+                    </table>
+
+                </div>
+
+            </div>
+
+        </section>
+
+
+        <!-- ================= BUDGETS ================= -->
+
+        <section id="budgets"
+                 class="page">
+
+            <div class="page-heading">
+
+                <div>
+                    <span class="panel-label">
+                        LIMITS
+                    </span>
+
+                    <h2>
+                        Budgets
+                    </h2>
+                </div>
+
+            </div>
+
+            <div id="budgetsPage"
+                 class="cards">
+            </div>
+
+        </section>
+
+
+        <!-- ================= SUBSCRIPTIONS ================= -->
+
+        <section id="subscriptions"
+                 class="page">
+
+            <div class="page-heading">
+
+                <div>
+                    <span class="panel-label">
+                        RECURRING
+                    </span>
+
+                    <h2>
+                        Subscriptions
+                    </h2>
+                </div>
+
+            </div>
+
+            <div id="subscriptionContainer"
+                 class="cards">
+            </div>
+
+        </section>
+
+
+        <!-- ================= INSIGHTS ================= -->
+
+        <section id="insights"
+                 class="page">
+
+            <div class="page-heading">
+
+                <div>
+                    <span class="panel-label">
+                        AI ANALYSIS
+                    </span>
+
+                    <h2>
+                        Financial Insights
+                    </h2>
+                </div>
+
+            </div>
+
+            <div id="insightsPage">
+                Loading...
+            </div>
+
+        </section>
+
+
+        <!-- ================= GOALS ================= -->
+
+        <section id="goals"
+                 class="page">
+
+            <div class="page-heading">
+
+                <div>
+                    <span class="panel-label">
+                        SAVINGS
+                    </span>
+
+                    <h2>
+                        Financial Goals
+                    </h2>
+
+                </div>
+
+            </div>
+
+            <div id="goalsPage">
+                Loading...
+            </div>
+
+        </section>
+
+    </main>
+
+</div>
+
+
+<!-- ================= ASK MODAL ================= -->
+
+<div id="askModal"
+     class="modal">
+
+    <div class="modal-box">
+
+        <button class="close"
+                onclick="closeAsk()">
+            ×
+        </button>
+
+        <span class="panel-label">
+            FINPILOT AI
+        </span>
+
+        <h2>
+            Ask about your finances
+        </h2>
+
+        <p>
+            Ask about spending, budgets, subscriptions,
+            goals or your monthly summary.
+        </p>
+
+        <textarea id="question"
+                  placeholder="How much did I spend on Food this month?">
+        </textarea>
+
+        <button class="primary-button full"
+                onclick="askFinPilot()">
+            Ask FinPilot →
+        </button>
+
+        <div id="answer"
+             class="answer">
+        </div>
+
+    </div>
+
+</div>
+
+
+<!-- ================= UPLOAD MODAL ================= -->
+
+<div id="uploadModal"
+     class="modal">
+
+    <div class="modal-box">
+
+        <button class="close"
+                onclick="closeUpload()">
+            ×
+        </button>
+
+        <span class="panel-label">
+            TRANSACTIONS
+        </span>
+
+        <h2>
+            Upload statement
+        </h2>
+
+        <p>
+            Upload your CSV transaction statement.
+        </p>
+
+        <input type="file"
+               id="statementFile"
+               accept=".csv">
+
+        <button class="primary-button full"
+                onclick="uploadStatement()">
+            Upload & Analyze
+        </button>
+
+        <div id="uploadStatus"
+             class="answer">
+        </div>
+
+    </div>
+
+</div>
+
+
+<script th:src="@{/js/app.js}"></script>
+
+</body>
+
+</html>
