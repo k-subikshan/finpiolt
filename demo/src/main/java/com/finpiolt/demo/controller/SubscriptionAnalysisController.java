@@ -7,16 +7,16 @@ import org.springframework.web.client.RestTemplate;
 import java.util.Map;
 
 @RestController
-@RequestMapping("/api/finance")
-public class FinanceController {
+@RequestMapping("/api/subscriptions")
+public class SubscriptionAnalysisController {
 
     private final RestTemplate restTemplate = new RestTemplate();
 
     private final String n8nUrl =
-            "http://localhost:5678/webhook/finpilot/ask";
+            "http://localhost:5678/webhook/finpilot/subscription";
 
-    @PostMapping("/ask")
-    public ResponseEntity<?> askFinance(
+    @PostMapping("/analyze")
+    public ResponseEntity<?> analyzeSubscriptions(
             @RequestBody Map<String, Object> request
     ) {
 
@@ -45,7 +45,7 @@ public class FinanceController {
                     .status(HttpStatus.INTERNAL_SERVER_ERROR)
                     .body(Map.of(
                             "error",
-                            "Unable to connect to FinPilot AI workflow",
+                            "Unable to connect to Subscription Detection workflow",
                             "message",
                             e.getMessage()
                     ));

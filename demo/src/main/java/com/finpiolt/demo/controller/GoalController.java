@@ -31,10 +31,9 @@ public class GoalController {
                     current_amount,
                     target_date
                 FROM goals
-                WHERE user_name = ?
                 ORDER BY target_date
                 """;
 
-        return jdbcTemplate.queryForList(sql, user);
+        return jdbcTemplate.queryForList(sql);
     }
 }

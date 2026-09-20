@@ -305,103 +305,235 @@ async function loadTransactions() {
 
 /* ================= BUDGETS ================= */
 
+/* ================= BUDGETS ================= */
+
 async function loadBudgets() {
-
     try {
-
-        const response =
-            await fetch(
-                `${API}/budgets?user=${USER}`
-            );
-
+        const response = await fetch(
+            `${API}/budgets?user=${USER}`
+        );
 
         if (!response.ok) {
-
-            throw new Error("Budget API failed");
-
+            throw new Error("Failed to load budgets");
         }
 
+        const budgets = await response.json();
 
-        const budgets =
-            await response.json();
+        console.log("Budgets received:", budgets);
 
-
-        renderBudgets(
-            budgets,
-            document.getElementById("budgetContainer")
-        );
-
-
-        renderBudgets(
-            budgets,
-            document.getElementById("budgetsPage")
-        );
-
+        renderBudgets(budgets);
 
     } catch (error) {
-
-        console.error(error);
-
+        console.error("Budget loading error:", error);
     }
 }
 
 
-function renderBudgets(budgets, container) {
+function getBudgetContainer() {
+    let container = document.getElementById("budgetContainer");
 
-    if (!container) return;
+    if (container) {
+        return container;
+    }
+
+    const budgetsPage =
+        document.getElementById("budgets") ||
+        document.getElementById("budgetsPage") ||
+        document.querySelector('[data-page="budgets"]');
+
+    if (!budgetsPage) {
+        console.error(
+            'Budget page/container not found. Add <div id="budgetContainer"></div> to the Budgets page.'
+        );
+        return null;
+    }
+
+    container = document.createElement("div");
+    container.id = "budgetContainer";
+    container.className = "budget-grid";
+
+    budgetsPage.appendChild(container);
+
+    return container;
+}
 
 
-    container.innerHTML =
-        budgets.map(item => {
+function renderBudgets(budgets) {
 
-            const limit =
-                Number(item.monthly_limit || 0);
+    const container = getBudgetContainer();
 
-            const spent =
-                Number(item.spent || 0);
+    if (!container) {
+        return;
+    }
 
-            const percent =
-                limit > 0
-                    ? Math.min(
-                        (spent / limit) * 100,
-                        100
-                    )
-                    : 0;
+    container.innerHTML = "";
 
+    if (!Array.isArray(budgets) || budgets.length === 0) {
+        container.innerHTML = `
+            <div class="empty-state">
+                No budgets found.
+            </div>
+        `;
+        return;
+    }
 
-            return `
+    budgets.forEach(budget => {
 
-                <div class="budget-row">
+        const limit = Number(budget.monthly_limit) || 0;
+        const spent = Number(budget.spent) || 0;
 
-                    <div class="budget-info">
+        const percentage =
+            limit > 0
+                ? Math.min((spent / limit) * 100, 100)
+                : 0;
 
-                        <span>
-                            ${escapeHtml(item.category)}
-                        </span>
+        const remaining = Math.max(limit - spent, 0);
 
-                        <span>
-                            ${money(spent)}
-                            /
-                            ${money(limit)}
-                        </span>
+        const card = document.createElement("div");
 
+        card.className = "budget-card";
+
+        card.innerHTML = `
+            <div class="budget-header">
+
+                <div>
+                    <span class="budget-category">
+                        ${escapeHtml(budget.category)}
+                    </span>
+
+                    <div class="budget-amount">
+                        ${money(spent)} / ${money(limit)}
                     </div>
+                </div>
 
-                    <div class="progress">
+                <div class="budget-edit">
 
-                        <div style="width:${percent}%">
-                        </div>
+                    <label for="budget-${budget.id}">
+                        Monthly limit
+                    </label>
+
+                    <div class="budget-edit-row">
+
+                        <span>₹</span>
+
+                        <input
+                            type="number"
+                            min="0"
+                            step="100"
+                            value="${limit}"
+                            id="budget-${budget.id}"
+                            aria-label="Monthly budget for ${escapeHtml(budget.category)}"
+                        >
+
+                        <button
+                            type="button"
+                            onclick="saveBudget(${budget.id})"
+                        >
+                            Save
+                        </button>
 
                     </div>
 
                 </div>
 
-            `;
+            </div>
 
-        }).join("");
+            <div class="budget-progress">
+
+                <div
+                    class="budget-progress-fill"
+                    style="width:${percentage}%"
+                ></div>
+
+            </div>
+
+            <div class="budget-footer">
+
+                <span>
+                    ${percentage.toFixed(0)}% used
+                </span>
+
+                <span>
+                    ${money(remaining)} remaining
+                </span>
+
+            </div>
+        `;
+
+        container.appendChild(card);
+    });
 }
 
 
+async function saveBudget(id) {
+
+    const input =
+        document.getElementById(`budget-${id}`);
+
+    if (!input) {
+        console.error(
+            `Budget input not found for id ${id}`
+        );
+        return;
+    }
+
+    const monthlyLimit =
+        Number(input.value);
+
+    if (
+        !Number.isFinite(monthlyLimit) ||
+        monthlyLimit < 0
+    ) {
+        alert("Please enter a valid budget.");
+        input.focus();
+        return;
+    }
+
+    try {
+
+        const response = await fetch(
+            `${API}/budgets/${id}`,
+            {
+                method: "PUT",
+
+                headers: {
+                    "Content-Type":
+                        "application/json"
+                },
+
+                body: JSON.stringify({
+                    monthly_limit:
+                        monthlyLimit
+                })
+            }
+        );
+
+        const result =
+            await response.json();
+
+        if (!response.ok) {
+
+            throw new Error(
+                result.error ||
+                "Unable to update budget"
+            );
+        }
+
+        await loadBudgets();
+
+    } catch (error) {
+
+        console.error(
+            "Budget update error:",
+            error
+        );
+
+        alert(
+            "Failed to update budget: " +
+            error.message
+        );
+    }
+}
 /* ================= GOALS ================= */
 
 async function loadGoals() {
@@ -887,3 +1019,48 @@ document.addEventListener(
     }
 );
 document.addEventListener("DOMContentLoaded", loadDashboard);
+document.addEventListener("DOMContentLoaded", loadDashboard);
+
+async function uploadStatement() {
+
+    const fileInput = document.getElementById("transactionCsvFile");
+
+    if (!fileInput) {
+        alert("File input not found.");
+        return;
+    }
+
+    if (fileInput.files.length === 0) {
+        alert("Please select a CSV file.");
+        return;
+    }
+
+    const file = fileInput.files[0];
+
+    console.log("Selected file:", file.name);
+
+    const formData = new FormData();
+    formData.append("file", file);
+    formData.append("user_name", "subi");
+
+    try {
+        const response = await fetch("/api/transactions/upload", {
+            method: "POST",
+            body: formData
+        });
+
+        const result = await response.text();
+
+        console.log("Server response:", result);
+
+        if (!response.ok) {
+            throw new Error(result);
+        }
+
+        alert("Statement uploaded successfully!");
+
+    } catch (error) {
+        console.error("Upload error:", error);
+        alert("Upload failed: " + error.message);
+    }
+}

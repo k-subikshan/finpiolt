@@ -31,10 +31,9 @@ public class TransactionController {
                     category,
                     subcategory
                 FROM transactions
-                WHERE user_name = ?
                 ORDER BY transaction_date DESC
                 """;
 
-        return jdbcTemplate.queryForList(sql, user);
+        return jdbcTemplate.queryForList(sql);
     }
 }

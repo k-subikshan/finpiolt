@@ -1,6 +1,5 @@
 package com.finpiolt.demo.controller;
 
-
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.web.bind.annotation.*;
 
@@ -36,6 +35,6 @@ public class SubscriptionController {
                 ORDER BY amount DESC
                 """;
 
-        return jdbcTemplate.queryForList(sql, user);
+        return jdbcTemplate.queryForList(sql, "subi");
     }
 }

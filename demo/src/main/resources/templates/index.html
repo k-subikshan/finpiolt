@@ -40,11 +40,7 @@
                 Transactions
             </button>
 
-            <button class="nav-item"
-                    onclick="showPage('budgets', this)">
-                <span>◫</span>
-                Budgets
-            </button>
+            
 
             <button class="nav-item"
                     onclick="showPage('subscriptions', this)">
@@ -129,10 +125,19 @@
                     ♧
                 </button>
 
-                <button class="upload-button"
-                        onclick="openUpload()">
-                    ↑ Upload statement
-                </button>
+                <input
+    type="file"
+    id="transactionCsvFile"
+    accept=".csv"
+>
+
+<button
+    type="button"
+    onclick="uploadStatement()"
+    class="primary-button"
+>
+    Upload & Analyze
+</button>
 
             </div>
 
@@ -336,16 +341,15 @@
 
                         </div>
 
-                        <button class="text-button"
-                                onclick="showPageByName('budgets')">
-                            View all →
-                        </button>
+                       
 
                     </div>
+                    <div
+    id="budgetContainer"
+    class="budget-grid"
+></div>
 
-                    <div id="budgetContainer">
-                        Loading...
-                    </div>
+                    
 
                 </div>
 
